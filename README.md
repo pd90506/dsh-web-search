@@ -44,12 +44,13 @@ dsh plugin --profile web add github:pd90506/dsh-web-search#<commit-sha>
 Git 安装拉的是**源码而非构建产物**（`lib/` 不入库），包内的 `prepare` 脚本（`node build.mjs`）
 会在安装后现场构建 `lib/client.js`，无需 monorepo 等开发期上下文。pnpm ≥10 默认拒绝运行 git
 依赖的构建脚本，因此第一次 `add` 会失败并提示：把本包加入该 profile 的 `pnpm-workspace.yaml`
-白名单后重跑 `add`：
+白名单后重跑 `add`。注意白名单的键不是裸包名，而是 pnpm 打印的 `包名@tarball-URL` 整条
+（commit sha 已钉在 URL 里）：
 
 ```yaml
 # ~/.dsh/profiles/web/pnpm-workspace.yaml
 allowBuilds:
-  '@pd90506/dsh-web-search': true
+  "@pd90506/dsh-web-search@https://codeload.github.com/pd90506/dsh-web-search/tar.gz/<commit-sha>": true
 ```
 
 注意：该白名单等于**允许此包在安装期在你的机器上执行代码**（不受 agent 沙箱约束）——只为你信任的
