@@ -1,0 +1,62 @@
+{
+  "name": "@pd90506/dsh-web-search",
+  "version": "0.2.0",
+  "description": "DSH plugin registering Brave Search and Tavily as web search providers on ctx.web, plus a Web Search settings tab (API keys + default provider)",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pd90506/dsh-web-search.git"
+  },
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./brave": "./src/brave.js",
+    "./tavily": "./src/tavily.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepare": "node build.mjs",
+    "test": "node test/smoke.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "web-search",
+    "brave",
+    "tavily"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-launch-environment": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-web": "0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "3.18.1",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

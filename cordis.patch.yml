@@ -1,0 +1,14 @@
+# @pd90506/dsh-web-search bundle layer, appended to the profile's bundle stack by
+# `dsh plugin --profile web add` (via the package's dsh.bundle.patch
+# declaration). It inserts the host plugin, which registers the Brave and
+# Tavily search providers and mounts the `webSearch` settings RPC service;
+# the package's dsh.client declaration puts the Web Search settings tab into
+# the browser boot graph.
+#
+# The default-provider pin does NOT live here: the Web Search settings tab
+# writes `- id: web` overrides into the profile's own cordis.patch.yml, which
+# is composed after every bundle layer and therefore always wins.
+- insert:
+    - id: web-search-brave-tavily
+      name: '@pd90506/dsh-web-search'
+      config: {}
