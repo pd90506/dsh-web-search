@@ -1,51 +1,58 @@
 # @pd90506/dsh-web-search
 
-DSH 插件：向 `ctx.web` seam 注册 **Brave Search** 与 **Tavily** 两个网页搜索提供方（与内置的
-`@deepseek-ai/dsh-web-search-deepseek` 平级），并在 **设置 → Plugins → Plugin configuration** 中新增
-**「Brave & Tavily / Brave 与 Tavily」** 配置卡片：默认搜索提供方下拉框 + Brave / Tavily 的 API key 管理。
+A DSH plugin that registers **Brave Search** and **Tavily** as web search providers on the
+`ctx.web` seam (alongside the built-in `@deepseek-ai/dsh-web-search-deepseek`), plus a
+**"Brave & Tavily"** configuration card under **Settings → Plugins → Plugin configuration**:
+a default-provider dropdown and API key management for Brave / Tavily.
 
-## 结构
+## Layout
 
 ```
-├── cordis.patch.yml   bundle 层：insert 本插件（`dsh plugin add` 自动追加到 profile bundles）
-├── src/index.js       宿主插件入口：name/inject/Config/apply —— 注册两个提供方 + 挂载设置 RPC 服务
-├── src/brave.js       BraveSearchProvider —— GET {baseURL}/web/search（X-Subscription-Token）
-├── src/tavily.js      TavilySearchProvider —— POST {baseURL}/search（Authorization: Bearer），answer 映射为 content
-├── src/shared.js      取消/错误/凭证解析的共享辅助（与 deepseek 提供方同一约定）
-├── src/host-gateway.js webSearch 服务：getState / setDefaultProvider 两个 strict typert 端点
-├── src/client/        配置卡片源码（React，注册 settings.plugin.item 槽位）
-├── build.mjs          把客户端打成 __ModuleLoader__ 工厂格式 → lib/client.js（prepare 同款，git 安装时自动执行）
-└── test/smoke.mjs     真实 API 冒烟测试（读取本目录 .env）
+├── cordis.patch.yml   bundle layer: inserts this plugin (`dsh plugin add` appends it to the profile's bundles)
+├── src/index.js       host plugin entry: name/inject/Config/apply — registers both providers + mounts the settings RPC service
+├── src/brave.js       BraveSearchProvider — GET {baseURL}/web/search (X-Subscription-Token)
+├── src/tavily.js      TavilySearchProvider — POST {baseURL}/search (Authorization: Bearer), answer mapped to content
+├── src/shared.js      shared helpers for cancellation/errors/credential resolution (same conventions as the deepseek provider)
+├── src/host-gateway.js webSearch service: two strict typert endpoints, getState / setDefaultProvider
+├── src/client/        configuration card source (React, registers the settings.plugin.item slot)
+├── build.mjs          bundles the client into __ModuleLoader__ factory format → lib/client.js (same script as prepare, runs automatically on git installs)
+└── test/smoke.mjs     real-API smoke test (reads .env in this directory)
 ```
 
-提供方 id：`brave`、`tavily`（内置为 `deepseek-official`）。
+Provider ids: `brave`, `tavily` (the built-in one is `deepseek-official`).
 
-## 工作原理（与内置提供方对齐的事实）
+## How it works (facts aligned with the built-in provider)
 
-- **注册**：`ctx.web.registerSearchProvider(provider)`；seam 自己负责 `maxResults` 截断。
-- **凭证链**：字面 `apiKey` → credentials 服务（`$DSH_HOME/.credentials.yaml`，0600，热加载）→
-  启动环境（进程环境 > 启动目录 `.env` > `$DSH_HOME/.env`）。缺钥报 `WEB_PROVIDER_CREDENTIAL_MISSING`。
-- **提供方选择**：`web` 条目配置 `searchProvider`（环境变量 `DSH_WEB_SEARCH_PROVIDER` 为兜底），
-  无兜底链——每次搜索只走一个提供方。base 层默认 `deepseek-official`，装上本插件不会改变现状。
-- **默认提供方下拉框**：写入 profile 的 `~/.dsh/profiles/web/cordis.patch.yml`
-  （`- id: web` 的 `config.searchProvider`，合并写入、保留注释与其他条目）；该文件被 HMR 监听，
-  约一秒内生效、跨重启持久。无需手改。
-- **设置页 RPC**：`webSearch/*` 通过共享 typert 注册表（`ctx.typert.register`）登记 strict 端点——
-  运行时注册，不受插件内嵌 `@deepseek-ai/*` 副本与宿主模块实例差异影响（`@Remote` 装饰器路径
-  受此影响，勿用）。key 的读写只走官方 `credentials.*` RPC（本机回环限定），key 永不回显。
+- **Registration**: `ctx.web.registerSearchProvider(provider)`; the seam itself enforces `maxResults` truncation.
+- **Credential chain**: literal `apiKey` → credentials service (`$DSH_HOME/.credentials.yaml`, mode 0600,
+  hot-reloaded) → launch environment (process env > launch-directory `.env` > `$DSH_HOME/.env`).
+  A missing key raises `WEB_PROVIDER_CREDENTIAL_MISSING`.
+- **Provider selection**: the `web` entry's `searchProvider` config (with the `DSH_WEB_SEARCH_PROVIDER`
+  environment variable as fallback). There is no fallback chain — each search goes through exactly one
+  provider. The base layer defaults to `deepseek-official`; installing this plugin does not change that.
+- **Default-provider dropdown**: writes to the profile's `~/.dsh/profiles/web/cordis.patch.yml`
+  (`config.searchProvider` on the `- id: web` entry — merged in, preserving comments and sibling entries).
+  That file is watched by HMR, so changes take effect within about a second and persist across restarts.
+  No manual editing needed.
+- **Settings-page RPC**: `webSearch/*` endpoints are registered as strict endpoints through the shared
+  typert registry (`ctx.typert.register`) — runtime registration, unaffected by module-identity
+  differences between the plugin's nested `@deepseek-ai/*` copies and the host's instances (the
+  `@Remote` decorator path *is* affected — do not use it). Keys are read and written only through the
+  official `credentials.*` RPC (loopback-only) and are never echoed back.
 
-## 安装（web profile，从 GitHub）
+## Install (web profile, from GitHub)
 
 ```bash
-# 固定到某个 commit，避免后续推送悄悄改变安装期执行的代码
+# Pin to a commit so a later push cannot silently change the code that runs at install time
 dsh plugin --profile web add github:pd90506/dsh-web-search#<commit-sha>
 ```
 
-Git 安装拉的是**源码而非构建产物**（`lib/` 不入库），包内的 `prepare` 脚本（`node build.mjs`）
-会在安装后现场构建 `lib/client.js`，无需 monorepo 等开发期上下文。pnpm ≥10 默认拒绝运行 git
-依赖的构建脚本，因此第一次 `add` 会失败并提示：把本包加入该 profile 的 `pnpm-workspace.yaml`
-白名单后重跑 `add`。注意白名单的键不是裸包名，而是 pnpm 打印的 `包名@tarball-URL` 整条
-（commit sha 已钉在 URL 里）：
+A git install fetches **sources, not built artifacts** (`lib/` is not committed). The package's
+`prepare` script (`node build.mjs`) builds `lib/client.js` on the spot after install, with no
+dev-only context such as a monorepo checkout required. pnpm ≥10 refuses to run a git dependency's
+build scripts by default, so the first `add` fails with a prompt: add this package to the profile's
+`pnpm-workspace.yaml` allowlist, then re-run `add`. Note the allowlist key is not the bare package
+name — it is the full `name@tarball-URL` string pnpm prints (the commit sha is pinned inside the URL):
 
 ```yaml
 # ~/.dsh/profiles/web/pnpm-workspace.yaml
@@ -53,51 +60,53 @@ allowBuilds:
   "@pd90506/dsh-web-search@https://codeload.github.com/pd90506/dsh-web-search/tar.gz/<commit-sha>": true
 ```
 
-注意：该白名单等于**允许此包在安装期在你的机器上执行代码**（不受 agent 沙箱约束）——只为你信任的
-包开启，并固定 commit（`#<sha>`）。
+Warning: this allowlist means **allowing the package to execute code on your machine at install time**
+(outside any agent sandbox) — only allow packages whose source you trust, and pin a commit (`#<sha>`).
 
-装完**重启 dsh 一次**（客户端模块清单只在启动时扫描）。之后默认提供方 / key 在
-设置 → Plugins → Plugin configuration 的「Brave & Tavily」卡片即改即生效。
+**Restart dsh once** after installing (the client module manifest is only scanned at startup). From
+then on, the default provider and keys in the **Settings → Plugins → Plugin configuration →
+Brave & Tavily** card take effect immediately.
 
-## 本地开发（link: 安装）
+## Local development (link: install)
 
 ```bash
-npm install                        # prepare 会自动构建 lib/client.js
-dsh plugin --profile web add /Users/panda/repo/Agents/dsh-plugins/dsh-web-search
-# pnpm 以 link: 引用本目录；dsh.bundle.patch 声明使 bundle 层自动生效，无需手改 profile
+npm install                        # prepare builds lib/client.js automatically
+dsh plugin --profile web add /path/to/dsh-web-search
+# pnpm references this directory as link:; the dsh.bundle.patch declaration activates the bundle layer — no profile edits needed
 ```
 
-- 改 `src/client/` → `npm run build` → 浏览器热更新（client-hmr）；
-- 改 `src/*.js`（宿主侧）→ 重启 dsh 生效（dsh 默认不开模块级 HMR）；
-- 对外发布：`git push` 后使用者按上节从 GitHub 安装（git 安装不跟随本地改动）。
+- Editing `src/client/` → `npm run build` → hot reloads in the browser (client-hmr);
+- editing `src/*.js` (host side) → restart dsh (dsh does not enable module-level HMR by default);
+- publishing: after `git push`, users install from GitHub as above (a git install does not follow local changes).
 
-## 配置（可选）
+## Configuration (optional)
 
-bundle 层 insert 的 `config: {}` 可覆盖（写在 profile `cordis.patch.yml` 的同名条目里，
-patch 语义为整段替换 config）：
+The `config: {}` inserted by the bundle layer can be overridden (write it into the entry of the same
+name in the profile's `cordis.patch.yml`; patch semantics replace the whole config block):
 
-| 键 | 默认 | 说明 |
+| Key | Default | Description |
 | --- | --- | --- |
-| `braveApiKey` / `tavilyApiKey` | — | 字面 key（secret，不推荐落盘） |
-| `braveApiKeyEnv` / `tavilyApiKeyEnv` | `BRAVE_API_KEY` / `TAVILY_API_KEY` | 凭证引用名 |
-| `braveBaseURL` | `https://api.search.brave.com/res/v1` | API 根 |
-| `tavilyBaseURL` | `https://api.tavily.com` | API 根 |
+| `braveApiKey` / `tavilyApiKey` | — | literal key (secret; storing on disk not recommended) |
+| `braveApiKeyEnv` / `tavilyApiKeyEnv` | `BRAVE_API_KEY` / `TAVILY_API_KEY` | credential reference name |
+| `braveBaseURL` | `https://api.search.brave.com/res/v1` | API root |
+| `tavilyBaseURL` | `https://api.tavily.com` | API root |
 | `tavilySearchDepth` | `basic` | `basic`/`advanced` |
-| `tavilyIncludeAnswer` | `true` | answer 映射为结果 `content` |
-| `maxResults` | `10` | 请求未带 `maxResults` 时的上限（Brave 封顶 20） |
+| `tavilyIncludeAnswer` | `true` | answer mapped to result `content` |
+| `maxResults` | `10` | cap when the request carries no `maxResults` (Brave caps at 20) |
 
-## 冒烟测试
+## Smoke test
 
 ```bash
 npm install
 echo 'BRAVE_API_KEY=...' >> .env
 echo 'TAVILY_API_KEY=...' >> .env
-npm test          # 先验证缺钥路径，再对每个提供方各发一发真实搜索
+npm test          # verifies the missing-key path first, then fires one real search per provider
 ```
 
-## 注意
+## Notes
 
-- `.credentials.yaml` 只能**合并**写入（保留既有条目，权限 0600）——整体覆盖会清掉别的 key
-  （这正是本插件第一次事故的根因）。日常请用设置页或 Models 页写 key。
-- `webSearch/*` 端点走 typert 网关（trusted-host 域），仅暴露提供方状态与默认提供方写入，
-  不触碰任何 key 本体。
+- `.credentials.yaml` must only be **merge**-written (preserve existing entries, mode 0600) — a
+  wholesale overwrite wipes other keys (this was the root cause of this plugin's first incident).
+  Use the settings page or the Models page for day-to-day key writes.
+- The `webSearch/*` endpoints run through the typert gateway (trusted-host domain) and only expose
+  provider state and default-provider writes — they never touch key material itself.
